@@ -1,0 +1,21 @@
+Build by using the make command in PA1/ directory
+The target is called PA1
+To run use
+./PA1 [config_file_path]
+e.g.
+./PA1 test.conf
+
+All errors specified in the clarification email are accounted for; however, I
+would like to in the future add error handling for unexpected values in the
+.conf files, as well as any missing config data, such as not setting keyboard
+cycle times.
+
+Project Information:
+This project parses a config file and saves all of those setings in a Config
+data structure.  It then parses a meta-data program file and outputs time data
+for each action with information from the aforementioned Config data
+structure.  It will log this data and config settings to the appropriate
+locations based on what "Log to" is set to in the .conf file.
+Config files must be .conf file extensions.
+Metadata files must be .mdf file extensions.
+They both must be non-empty.
