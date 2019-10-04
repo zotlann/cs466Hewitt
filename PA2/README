@@ -1,21 +1,51 @@
-Build by using the make command in PA1/ directory
-The target is called PA1
+Build by using the make command in PA2/ directory
+The target is called PA2
 To run use
-./PA1 [config_file_path]
+./PA2 [config_file_path]
 e.g.
-./PA1 test.conf
-
-All errors specified in the clarification email are accounted for; however, I
-would like to in the future add error handling for unexpected values in the
-.conf files, as well as any missing config data, such as not setting keyboard
-cycle times.
+./PA2 test.conf
 
 Project Information:
 This project parses a config file and saves all of those setings in a Config
-data structure.  It then parses a meta-data program file and outputs time data
-for each action with information from the aforementioned Config data
-structure.  It will log this data and config settings to the appropriate
-locations based on what "Log to" is set to in the .conf file.
+data structure.  It then parses a meta-data program file and loads that code into memory.
+It then runs that code in real time outputting timestamps and information regarding the processes
+being run. It will log this data and config settings to the appropriate locations based on what "Log to" is set to in the .conf file.
 Config files must be .conf file extensions.
 Metadata files must be .mdf file extensions.
 They both must be non-empty.
+
+There is a PCB class declared in pcb.h and defined in pcb.cpp
+pcb sates are set in the constructors of a metadata class object to DEFAULT to indicate that the
+program has not yet begun running and that there is no state for pcb yet.
+This is done in lines 123 and 131 of metadata.cpp
+pcb state sare altered during the runtime of the metadata program multiple times depending
+on the actions being done to allow for error handling and debugging of metadata code. A comprehensive list of these changes are below.
+
+metadata.cpp:198: pcb.setState(START);
+metadata.cpp:206: pcb.setState(EXIT);
+metadata.cpp:217: pcb.setState(READY);
+metadata.cpp:226: pcb.setState(READY);
+metadata.cpp:233: pcb.setState(RUNNING);
+metadata.cpp:237: pcb.setState(READY);
+metadata.cpp:259: pcb.setState(WAITING);
+metadata.cpp:263: pcb.setState(READY);
+metadata.cpp:285: pcb.setState(WAITING);
+metadata.cpp:289: pcb.setState(READY);
+metadata.cpp:295: pcb.setState(RUNNING);
+metadata.cpp:298: pcb.setState(READY);
+metadata.cpp:302: pcb.setState(RUNNING);
+metadata.cpp:305: pcb.setState(READY);
+
+As mentioned above, PCB states are used for to make sure the example metadata code is valid and all processes can happen without issue.  
+For this purpose we often read the pcb state to make sure it is in the correct state before executing processes.  A comprehensive list of these checks are below.
+
+metadata.cpp:194: if(pcb.getState() != DEFAULT){
+metadata.cpp:202: if(pcb.getState() != READY){
+metadata.cpp:213: if((pcb.getState() != START) && (pcb.getState() != READY)){
+metadata.cpp:222: if(pcb.getState() != READY){
+
+Lastly, the PCB keeps track of process ids and is iterated whenever a new process starts. This is initialized to 0 in the metadata constructors in metadata.cpp:122 and metadata:130.  And incremented when a new process opens in metadata.cpp:218
+
+I/O is done using pthreads.  These threads are created whenever an input or output event occurs.
+The threads are closed when the event ends. pthread_create occurs in metadata.cpp:261 and metadata.cpp:287 while pthread_join occurs in metadata.cpp262 and metadata.cpp:288
+

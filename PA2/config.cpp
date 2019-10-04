@@ -1,3 +1,8 @@
+//--------------------------------------------------------------------
+// Jonathon Hewitt
+// config.cpp
+// implementation of the Config class and related functions
+//--------------------------------------------------------------------
 #include "config.h"
 
 //Default Constructor for Config
@@ -101,6 +106,12 @@ Config::Config(std::string config_filename){
 			config_file >> temp_int;
 			keyboard_cycle_time = temp_int;
 		}
+		//if the first string is scanner, set the scanner time
+		else if(temp_string == "Scanner"){
+			std::getline(config_file,temp_string,':');
+			config_file >> temp_int;
+			scanner_cycle_time = temp_int;
+		}
 		//if the first string is Memory, set the memory time
 		else if(temp_string == "Memory"){
 			std::getline(config_file,temp_string,':');
@@ -112,6 +123,21 @@ Config::Config(std::string config_filename){
 			std::getline(config_file,temp_string,':');
 			config_file >> temp_int;
 			printer_cycle_time = temp_int;
+		}
+		//if the first string is Projector, set the projector time
+		else if(temp_string == "Projector"){
+			std::getline(config_file,temp_string,':');
+			config_file >> temp_int;
+			projector_cycle_time = temp_int;
+		}
+		//if the first string is system, set the memory size and system memory
+		else if(temp_string == "System"){
+			std::getline(config_file,temp_string,'{');
+			std::getline(config_file,temp_string,'}');
+			memory_size = temp_string;
+			std::getline(config_file,temp_string,':');
+			config_file >> temp_int;
+			system_memory = temp_int;
 		}
 		//if the first string is Log: set the log boolans
 		else if(temp_string == "Log:"){
@@ -146,6 +172,10 @@ Config::Config(std::string config_filename){
 			return;
 		}
 	}
+	//delete contents of log file if it exists
+	std::ofstream log_file;
+	log_file.open(getLogFilename().c_str(),std::ofstream::trunc);
+	log_file.close();
 
 }
 
@@ -192,6 +222,12 @@ int Config::getKeyboardCycleTime(){
 void Config::setKeyboardCycleTime(int n){
 	keyboard_cycle_time = n;
 }
+int Config::getScannerCycleTime(){
+	return scanner_cycle_time;
+}
+void Config::setScannerCycleTime(int n){
+	scanner_cycle_time = n;
+}
 int Config::getMemoryCycleTime(){
 	return memory_cycle_time;
 }
@@ -203,6 +239,24 @@ int Config::getPrinterCycleTime(){
 }
 void Config::setPrinterCycleTime(int n){
 	printer_cycle_time = n;
+}
+int Config::getProjectorCycleTime(){
+	return projector_cycle_time;
+}
+void Config::setProjectorCycleTime(int n){
+	projector_cycle_time = n;
+}
+int Config::getSystemMemory(){
+	return system_memory;
+}
+void Config::setSystemMemory(int n){
+	system_memory = n;
+}
+std::string Config::getMemorySize(){
+	return memory_size;
+}
+void Config::setMemorySize(std::string s){
+	memory_size = s;
 }
 bool Config::logToFile(){
 	return log_to_file;

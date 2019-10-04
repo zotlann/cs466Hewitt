@@ -1,3 +1,10 @@
+//--------------------------------------------------------------------
+// Jonathon Hewitt
+// metadata.cpp
+// Implementation of the Code and MetaData classes along with 
+// relevant functions
+//--------------------------------------------------------------------
+
 #include "metadata.h"
 
 //Default Constructor for Code
@@ -51,7 +58,7 @@ Code::Code(std::string code_string){
 	std::getline(code_stream,temp_string,'}');
 
 	//if the operation is not a valid operation throw an error
-	if((temp_string != "begin") &&(temp_string != "finish") && (temp_string != "harddrive") && (temp_string != "keyboard") && (temp_string != "mouse") && (temp_string != "monitor") && (temp_string != "run") && (temp_string != "allocate") && (temp_string != "printer") && (temp_string != "block")){
+	if((temp_string != "begin") &&(temp_string != "finish") && (temp_string != "harddrive") && (temp_string != "keyboard") && (temp_string != "mouse") && (temp_string != "monitor") && (temp_string != "scanner") && (temp_string != "projector") && (temp_string != "run") && (temp_string != "allocate") && (temp_string != "printer") && (temp_string != "block")){
 		error = "Invalid descriptor: " + temp_string + "\n";
 		throw std::logic_error(error);
 		return;
@@ -118,13 +125,17 @@ MetaData::MetaData(){
 	Config cfg;
 	std::vector<Code*> cds;
 	config = cfg;
-	codes =cds;
+	codes = cds;
+	pcb.setID(0);
+	pcb.setState(DEFAULT);
 }
 
 //Parameterized Constructor for MetaData class
 MetaData::MetaData(Config cfg){ 
 	config = cfg;
 	codes = parseMetadataFile(config.getMetadataFilename());
+	pcb.setID(0);
+	pcb.setState(DEFAULT);
 }
 
 //Getters and Setters for MetaData class data members
@@ -170,11 +181,147 @@ int MetaData::getCodeTime(Code code){
 	return 0;
 }
 
-//log to the appropriate channels based on what is set in config
+//run the program and output time data to appropriate channels
+void MetaData::run(){
+	std::string log_string;
+	pthread_t thread_id;
+	std::chrono::high_resolution_clock::time_point tp;
+	tp = std::chrono::high_resolution_clock::now();
+	for(int i = 0; i < codes.size(); i++){
+		log(runProcess(codes[i],thread_id,tp));
+	}
+}
+
+//runs the current code and returns relevant time and operational data in a formatted string
+std::string MetaData::runProcess(Code* code, pthread_t thread_id, std::chrono::high_resolution_clock::time_point tp){
+	std::string ret_string = "";
+	int* wait_time = new int;
+	int cycle_time;
+	switch(code->getOperation()){
+		//If the operations is System,  end or begin simulation as indicated
+		//Make sure that the PCB is in appropriate states for beginning or ending the 
+		//simulation and if it is not, throw an error and terminate.
+		case 'S':
+			if(code->getDescription() == "begin"){
+				if(pcb.getState() != DEFAULT){
+					std::string error = "Tried to begin process with PCB in not intial state, check metadata code\n";
+					throw std::logic_error(error);
+				}
+				pcb.setState(START);
+				ret_string = ret_string + getTimeStamp(tp) + " - Simulator program starting\n";
+			}
+			else if(code->getDescription() == "finish"){
+				if(pcb.getState() != READY){
+					std::string error = "Tried to finish process with PCB not in ready state, check metadata code\n";
+					throw std::logic_error(error);
+				}
+				pcb.setState(EXIT);
+				ret_string = getTimeStamp(tp) + " - Simulator program ending\n";
+			}
+			return ret_string;
+			break;
+		//If the operation is Application, end or start the application as indicated
+		//Increment the PCB ID as appropriate
+		//If the PCB is not in an appropriate state for starting or ending an application
+		//throw an error and terminate
+		case 'A':
+			if(code->getDescription() == "begin"){
+				if((pcb.getState() != START) && (pcb.getState() != READY)){
+					std::string error = "Tried to begin process with PCB not in START state, check metadat code\n";
+					throw std::logic_error(error);
+				}
+				pcb.setState(READY);
+				pcb.setID(pcb.getID() + 1);
+				ret_string = getTimeStamp(tp) + " - OS: preparing process " + std::to_string(pcb.getID()) + "\n";
+			}
+			else if(code->getDescription() == "finish"){
+				if(pcb.getState() != READY){
+					std::string error = "Tried to finish process in PCB not in READY state, check metadata code\n";
+					throw std::logic_error(error);
+				}
+				pcb.setState(READY);
+				ret_string = getTimeStamp(tp) + " - OS: removing process " + std::to_string(pcb.getID()) + "\n";
+			}
+			return ret_string;
+			break;
+		//If the operation is Processing, run the processor for the appropriate number
+		//of cycles 
+		case 'P':
+			if(code->getDescription() == "run"){
+				pcb.setState(RUNNING);
+				ret_string = getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": start processing action\n";
+				wait(code->getCycles() * config.getProcessorCycleTime());
+				ret_string = ret_string + getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": end processing action\n";
+				pcb.setState(READY);
+			}
+			return ret_string;
+			break;
+		//If the operation is input, process input using pthreads
+		case 'I':
+			ret_string = getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": start " + code->getDescription() + " input\n";
+			pcb.setState(WAITING);
+			*wait_time = getCodeTime(*code);
+			pthread_create(&thread_id,NULL,threadTimer,(void*)wait_time);
+			pthread_join(thread_id,NULL);
+			pcb.setState(READY);
+			ret_string = ret_string + getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": end " + code->getDescription() + " input\n";
+			return ret_string;
+			break;
+		//If the operation is output, process output using pthreads
+		case 'O':
+			ret_string = getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": start " + code->getDescription() + " output\n";
+			pcb.setState(WAITING);
+			*wait_time = getCodeTime(*code);
+			pthread_create(&thread_id,NULL,threadTimer,(void*)wait_time);
+			pthread_join(thread_id,NULL);
+			pcb.setState(READY);
+			ret_string = ret_string + getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": end " + code->getDescription() + " output\n";
+			return ret_string;
+			break;
+		//If the operation is in memory, perform the relevant operation
+		case 'M':
+			if(code->getDescription() == "block"){
+				pcb.setState(RUNNING);
+				ret_string = getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": start memory blocking\n";
+				wait(code->getCycles() * config.getMemoryCycleTime());
+				pcb.setState(READY);
+				ret_string = ret_string + getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": end memory blocking\n";
+			}
+			if(code->getDescription() == "allocate"){
+				pcb.setState(RUNNING);
+				ret_string = getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": allocating memory\n";
+				wait(code->getCycles() * config.getMemoryCycleTime());
+				pcb.setState(READY);
+				ret_string = ret_string + getTimeStamp(tp) + " - Process " + std::to_string(pcb.getID()) + ": memory allocated at " + allocateMemory() + "\n";
+			}
+			return ret_string;
+			break;
+	}
+}
+
+//Randomly allocate a valid memory address for the program and return the value as a printable
+//string
+std::string MetaData::allocateMemory(){
+	int memory_location;
+	srand(time(NULL));
+	if(config.getMemorySize() == "kbytes"){
+		memory_location = rand() % config.getSystemMemory() + 1;
+	}
+	if(config.getMemorySize() == "Mbytes"){
+		memory_location = rand() % (config.getSystemMemory()*1000) + 1;
+	}
+ 	if(config.getMemorySize() == "Gbtes"){
+		memory_location = rand() % (config.getSystemMemory() * 1000000) + 1;
+	}
+	std::stringstream sstream;
+	sstream << "0x" << std::hex << memory_location;
+	std::string ret_string(sstream.str());
+	return ret_string;
+}
+		
+//log all metadata to the appropriate channels based on what is set in config
 void MetaData::log(){
 	std::ofstream log_file;
-	std::cout << std::endl;
-	std::cout << config.getLogFilename() << std::endl;
 	if(config.logToFile()){
 		log_file.open(config.getLogFilename().c_str(),std::ofstream::app);
 		log_file << *this;
@@ -182,6 +329,19 @@ void MetaData::log(){
 	}
 	if(config.logToConsole()){
 		std::cout << *this;
+	}
+}
+
+//log string to the appropriate channels based on what is set in config
+void MetaData::log(std::string s){
+	std::ofstream log_file;
+	if(config.logToFile()){
+		log_file.open(config.getLogFilename().c_str(),std::ofstream::app);
+		log_file << s;
+		log_file.close();
+	}
+	if(config.logToConsole()){
+		std::cout << s;
 	}
 }
 

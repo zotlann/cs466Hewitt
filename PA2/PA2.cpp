@@ -16,10 +16,7 @@ int main(int argc, char** argv){
 	std::string config_filename = argv[1];
 	//create a config object using the parameterized constructor
 	Config* cfg = new Config(config_filename);
-	//log the config settings
-	cfg->log();
 	//create a metadata object using the parameterized constructor
 	MetaData* metadata = new MetaData(*cfg);
-	//log the metadta code
-	metadata->log();
+	metadata->run();
 }
