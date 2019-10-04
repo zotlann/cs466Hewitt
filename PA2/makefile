@@ -1,7 +1,7 @@
 #Compiler
 CC=g++
 #Compiler Flags
-CXXFLAGS=-g -Wall -std=c++0x -lpthread
+CXXFLAGS=-g -Wall -std=c++0x -pthread
 
 # .o compilatoin
 O_FILES=main.o config.o metadata.o pcb.o utility.o
