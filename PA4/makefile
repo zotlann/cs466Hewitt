@@ -7,9 +7,9 @@ CXXFLAGS=-g -Wall -std=c++0x -pthread
 O_FILES=main.o config.o metadata.o pcb.o utility.o resources.o process.o scheduler.o
 
 all: $(O_FILES)
-	$(CC) $(CXXFLAGS) -o PA3 $(O_FILES)
-main.o: PA3.cpp
-	$(CC) $(CXXFLAGS) -c PA3.cpp -o main.o
+	$(CC) $(CXXFLAGS) -o PA4 $(O_FILES)
+main.o: PA4.cpp
+	$(CC) $(CXXFLAGS) -c PA4.cpp -o main.o
 config.o: config.cpp
 	$(CC) $(CXXFLAGS) -c config.cpp -o config.o
 metadeta.o: metadeta.cpp
